@@ -1,0 +1,399 @@
+---
+title: "01_asrt_RT"
+author: "Cintia Anna Nagy"
+date: "2024-08-31"
+output: html_document
+---
+
+# import packages
+
+```{r message = False}
+library(tidyverse)
+library(sjPlot)
+library(performance)
+library(car)
+library(afex)
+library(emmeans)
+```
+
+# load data 
+
+```{r message = False}
+data_trial <- read_csv("processed_data/ASRT/data_trial.csv")
+```
+
+# preprocessing
+
+```{r}
+data_trial <- if (!3 %in% unique(data_trial$group)) {
+  data_trial %>%
+    filter(high_low_learning %in% c('high', 'low'))
+} else {
+  data_trial
+}
+```
+
+## factor group
+
+```{r}
+data_trial <- data_trial %>% 
+  mutate(group = factor(group))
+```
+
+## add asrt type col
+
+```{r}
+data_trial <- data_trial %>% 
+  mutate(asrt_type = 
+           case_when(
+             session == 1 ~ s1_asrt_type,
+             session == 2 ~ s2_asrt_type
+           ))
+```
+
+## drop trills and repetitions
+
+```{r}
+data_trial<- data_trial %>% 
+  filter(trill == FALSE,
+         repetition == FALSE)
+```
+
+## drop errors
+
+```{r}
+data_trial_RT <- data_trial %>% 
+  filter(ACC == 1)
+```
+
+## create dataset for session 1 & 2
+
+```{r}
+data_trial_RT_s1 <- data_trial_RT %>% 
+  filter(session == 1)
+```
+
+```{r}
+data_trial_RT_s2 <- data_trial_RT %>% 
+  filter(session == 2)
+```
+
+## center block
+
+```{r}
+data_trial_RT <- data_trial_RT %>% 
+  mutate(block_centered = scale(block, scale = F, center = T))
+
+data_trial_RT_s1 <- data_trial_RT_s1 %>% 
+  mutate(block_centered = scale(block, scale = F, center = T))
+
+data_trial_RT_s2 <- data_trial_RT_s2 %>% 
+  mutate(block_centered = scale(block, scale = F, center = T))
+```
+
+## save data
+
+```{r}
+write.csv(data_trial_RT_s1, file = "processed_data/ASRT/data_trial_RT_s1.csv")
+
+write.csv(data_trial_RT_s2, file = "processed_data/ASRT/data_trial_RT_s2.csv")
+```
+
+# trial-level analysis
+## asrt_type RT
+
+```{r}
+asrt_type_model <- mixed(RT ~ asrt_type*high_low_learning*block_centered + (1 | subject),
+                  data = data_trial_RT)
+```
+
+### assumptions
+
+```{r}
+qqPlot(resid(asrt_type_model$full_model))
+plot(asrt_type_model$full_model)
+plot_model(asrt_type_model$full_model, type = "diag")
+check_normality(asrt_type_model$full_model)
+check_collinearity(asrt_type_model$full_model)
+```
+
+### model summary
+
+```{r}
+asrt_type_model$anova_table
+tab_model(asrt_type_model$full_model,
+          df.method = "satterthwaite",
+          show.se = T,
+          show.stat = T,
+          show.df = T,
+          string.pred = "Terms",
+          string.est = "b",
+          string.ci = "95% CI",
+          string.se = "SE b",
+          string.stat = "t",
+          col.order = c("est", "se", "ci", "stat", "df.error", "p"))
+```
+
+### plot
+
+```{r}
+data_trial_plot <- data_trial_RT %>% 
+  group_by(epoch, high_low_learning, asrt_type) %>%
+  summarise(
+    rt = mean(RT, na.rm = TRUE),
+    lower_ci = t.test(RT)$conf.int[1],
+    upper_ci = t.test(RT)$conf.int[2]
+  ) %>%
+  ungroup()
+
+labels <- c(
+  "motoros" = "téri ASRT",
+  "perceptuo" = "irány-alapú ASRT"
+)
+
+ggplot(data_trial_plot, aes(x = as.numeric(epoch), y = rt, colour = high_low_learning)) +
+  geom_point() +
+  geom_line() +
+  geom_ribbon(aes(ymin = lower_ci, ymax = upper_ci, fill = high_low_learning), alpha = 0.2, colour = NA) +
+  facet_grid(. ~ asrt_type, labeller = labeller(asrt_type = labels)) +
+  labs(x = "Blokkok", y = "Reakcióidő (ms)", colour = "Triplett", fill = "Triplett") +
+  scale_color_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony")) +
+  scale_x_continuous(labels = c("1" = "1-5", "2" = "6-10", "3" = "11-15", "4" = "16-20", "5" = "21-25", "6" = "26-30", "7" = "31-35", "8" = "36-40"), breaks = c(1, 2, 3, 4, 5, 6, 7, 8)) +
+  scale_fill_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony")) +
+  theme_classic()
+
+ggsave("plot/trial_learning_phase_type.png", width = 25, height = 9, units = "cm", dpi = 300)
+```
+
+## RT for session 1
+
+```{r}
+RT_trial_model <- mixed(RT ~ group*block_centered*high_low_learning + (group*block_centered*high_low_learning | subject) + (1 | asrt_type),
+                  data = data_trial_RT_s1)
+```
+
+```{r}
+RT_trial_model <- mixed(RT ~ group*block_centered*high_low_learning + (block_centered*high_low_learning | subject)  + (1 | asrt_type),
+                  data = data_trial_RT_s1)
+```
+
+```{r}
+RT_trial_model <- mixed(RT ~ group*block_centered*high_low_learning + (block_centered+high_low_learning | subject)  + (1 | asrt_type),
+                  data = data_trial_RT_s1)
+```
+
+```{r}
+RT_trial_model <- mixed(RT ~ group*block_centered*high_low_learning + (high_low_learning | subject)  + (1 | asrt_type),
+                  data = data_trial_RT_s1)
+```
+
+```{r}
+RT_trial_model <- mixed(RT ~ group*block_centered*high_low_learning + (1 | subject) + (1 | asrt_type),
+                  data = data_trial_RT_s1)
+```
+
+### assumptions
+
+```{r}
+qqPlot(resid(RT_trial_model$full_model))
+plot(RT_trial_model$full_model)
+plot_model(RT_trial_model$full_model, type = "diag")
+check_normality(RT_trial_model$full_model)
+check_collinearity(RT_trial_model$full_model)
+```
+
+### model summary
+
+```{r}
+RT_trial_model$anova_table
+summary(RT_trial_model$full_model)
+tab_model(RT_trial_model$full_model,
+          df.method = "satterthwaite",
+          show.se = T,
+          show.stat = T,
+          show.df = T,
+          string.pred = "Terms",
+          string.est = "b",
+          string.ci = "95% CI",
+          string.se = "SE b",
+          string.stat = "t",
+          col.order = c("est", "se", "ci", "stat", "df.error", "p"))
+```
+
+### post-hoc tests
+
+```{r}
+emm_options(lmer.df = "Satterthwaite", lmerTest.limit = 62410)
+```
+
+```{r}
+# group main effect
+emm_group <- emmeans(RT_trial_model, ~ group, type = "response")
+emm_group
+pairs(regrid(emm_group), adjust = "holm")
+```
+
+```{r}
+# triplet x block interaction
+emtrends(RT_trial_model, pairwise ~ high_low_learning, var = "block_centered", cov.reduce = F, type = "response", adjust = "holm")
+```
+
+```{r}
+# triplet_type main effect
+emm_triplet <- emmeans(RT_trial_model, ~ high_low_learning, type = "response")
+emm_triplet
+pairs(regrid(emm_triplet), adjust = "holm")
+```
+
+```{r}
+# group x block interaction
+emtrends(RT_trial_model, pairwise ~ group, var = "block_centered", cov.reduce = F, adjust = "holm")
+#emmip(RT_trial_model, block_centered~ group, CIs = TRUE)
+```
+
+```{r}
+# triplet x block interaction
+emtrends(RT_trial_model, pairwise ~ high_low_learning, var = "block_centered", cov.reduce = F, adjust = "holm")
+```
+
+### plot
+
+```{r}
+data_trial_plot <- data_trial_RT_s1 %>%
+  group_by(epoch, high_low_learning, group) %>%
+  summarise(
+    rt = mean(RT, na.rm = TRUE),
+    lower_ci = t.test(RT)$conf.int[1],
+    upper_ci = t.test(RT)$conf.int[2]
+  ) %>%
+  ungroup()
+
+group_labels <- c(
+  "1" = "Szabály: A-A",
+  "2" = "Struktúra: A-B",
+  "3" = "Kontroll: R-A"
+)
+
+data_trial_plot$group <- factor(data_trial_plot$group, levels = c("3", "1", "2"))
+
+ggplot(data_trial_plot, aes(x = as.numeric(epoch), y = rt, colour = high_low_learning)) +
+  geom_point() +
+  geom_line() +
+  geom_ribbon(aes(ymin = lower_ci, ymax = upper_ci, fill = high_low_learning), alpha = 0.2, colour = NA) +
+  facet_grid(. ~ group, labeller = labeller(group = group_labels)) +
+  labs(x = "Blokkok", y = "Reakcióidő (ms)", colour = "Triplett", fill = "Triplett") +
+  scale_color_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony")) +
+  scale_x_continuous(labels = c("1" = "1-5", "2" = "6-10", "3" = "11-15", "4" = "16-20")) +
+  scale_fill_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony")) +
+  theme_classic()
+
+
+ggsave("plot/RT_epoch_s1.png", width = 25, height = 9, units = "cm", dpi = 300)
+```
+
+## RT for session 2
+
+```{r}
+RT_trial_model <- mixed(RT ~ group*block_centered*high_low_learning + (group*block_centered*high_low_learning | subject),
+                  data = data_trial_RT_s2)
+```
+
+```{r}
+RT_trial_model <- mixed(RT ~ group*block_centered*high_low_learning + (block_centered*high_low_learning | subject),
+                  data = data_trial_RT_s2)
+```
+
+```{r}
+RT_trial_model <- mixed(RT ~ group*block_centered*high_low_learning + (block_centered+high_low_learning | subject),
+                  data = data_trial_RT_s2)
+```
+
+```{r}
+RT_trial_model <- mixed(RT ~ group*block_centered*high_low_learning + (high_low_learning | subject) + (1| asrt_type),
+                  data = data_trial_RT_s2)
+```
+
+```{r}
+RT_trial_model <- mixed(RT ~ group*block_centered*high_low_learning + (1 | subject) + (1 | asrt_type),
+                  data = data_trial_RT_s2)
+```
+
+### assumptions
+
+```{r}
+qqPlot(resid(RT_trial_model$full_model))
+plot(RT_trial_model$full_model)
+plot_model(RT_trial_model$full_model, type = "diag")
+check_normality(RT_trial_model$full_model)
+check_collinearity(RT_trial_model$full_model)
+```
+
+### model summary
+
+```{r}
+RT_trial_model$anova_table
+tab_model(RT_trial_model$full_model,
+          df.method = "satterthwaite",
+          show.se = T,
+          show.stat = T,
+          show.df = T,
+          string.pred = "Terms",
+          string.est = "b",
+          string.ci = "95% CI",
+          string.se = "SE b",
+          string.stat = "t",
+          col.order = c("est", "se", "ci", "stat", "df.error", "p"))
+```
+
+### post-hoc tests
+
+```{r}
+emm_options(lmer.df = "Satterthwaite", lmerTest.limit = 68848)
+```
+
+```{r}
+# triplet_type main effect
+emm_triplet <- emmeans(RT_trial_model, ~ high_low_learning, type = "response")
+emm_triplet
+pairs(regrid(emm_triplet), adjust = "holm")
+```
+
+```{r}
+# group x block interaction
+emtrends(RT_trial_model, ~ group, var = "block_centered", cov.reduce = F, type = "response", adjust = "holm")
+#emmip(RT_trial_model, block_centered~ group, CIs = TRUE)
+```
+
+### plot
+
+```{r}
+data_trial_plot <- data_trial_RT %>%
+  group_by(epoch, high_low_learning, group) %>%
+  summarise(
+    rt = mean(RT, na.rm = TRUE),
+    lower_ci = t.test(RT)$conf.int[1],
+    upper_ci = t.test(RT)$conf.int[2]
+  ) %>%
+  ungroup()
+
+group_labels <- c(
+  "1" = "Szabály: A-A",
+  "2" = "Struktúra: A-B",
+  "3" = "Kontroll: R-A"
+)
+
+data_trial_plot$group <- factor(data_trial_plot$group, levels = c("3", "1", "2"))
+
+ggplot(data_trial_plot, aes(x = as.numeric(epoch), y = rt, colour = high_low_learning)) +
+  geom_point() +
+  geom_line()  +
+  geom_ribbon(aes(ymin = lower_ci, ymax = upper_ci, fill = high_low_learning), alpha = 0.2, colour = NA) +
+  facet_grid(. ~ group, labeller = labeller(group = group_labels)) +
+  labs(x = "Blokkok", y = "Reakcióidő (ms)", colour = "Triplett", fill = "Triplett") +
+  scale_color_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony")) +
+  scale_x_continuous(labels = c("1" = "1-5", "2" = "6-10", "3" = "11-15", "4" = "16-20", "5" = "21-25", "6" = "26-30", "7" = "31-35", "8" = "36-40"), breaks = c(1, 2, 3, 4, 5, 6, 7, 8)) +
+  scale_fill_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony")) +
+  theme_classic()
+
+ggsave("plot/RT_epoch.png", width = 25, height = 9, units = "cm", dpi = 300)
+```

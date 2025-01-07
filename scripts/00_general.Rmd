@@ -1,0 +1,80 @@
+---
+title: "00_general"
+author: "Cintia Anna Nagy"
+date: "2024-11-06"
+output: html_document
+---
+# import pacakges
+
+```{r}
+library(tidyverse)
+```
+
+# import data
+ 
+```{r}
+data_general <- read_csv("processed_data/data_general.csv")
+```
+# data for each group
+
+```{r}
+data_general_g1 <- data_general %>% 
+  filter(group == 1)
+
+data_general_g2 <- data_general %>% 
+  filter(group == 2)
+
+data_general_g3 <- data_general %>% 
+  filter(group == 3)
+```
+
+# participant per group
+
+```{r}
+data_general %>%
+  group_by(group) %>% 
+  summarise(n = n())
+```
+
+# participant per condition
+
+```{r}
+data_general %>% 
+  group_by(condition) %>% 
+  summarise(n = n())
+```
+
+# age
+
+```{r}
+data_general %>% 
+  group_by(group) %>% 
+  summarise(mean = mean(age),
+            sd = sd(age))
+```
+
+```{r}
+shapiro.test(data_general_g1$age)
+shapiro.test(data_general_g2$age)
+shapiro.test(data_general_g3$age)
+```
+
+```{r}
+kruskal.test(age ~ group, data = data_general)
+```
+
+
+# sex
+
+```{r}
+data_general %>% 
+  group_by(group, sex) %>% 
+  summarise(n = n())
+```
+
+
+```{r}
+sex_table = table(data_general$group, data_general$sex)
+sex_table
+chisq.test(sex_table, correct = FALSE)
+```
