@@ -19,7 +19,7 @@ library(emmeans)
 # load data 
 
 ```{r message = False}
-data_trial <- read_csv("processed_data/ASRT/data_trial.csv")
+data_trial <- read_csv("C:/Users/nagyc/Documents/GitHub/transfer_otdk/processed_data/ASRT/data_trial.csv")
 ```
 
 # preprocessing
@@ -282,13 +282,14 @@ ggplot(data_trial_plot, aes(x = as.numeric(epoch), y = rt, colour = high_low_lea
   geom_ribbon(aes(ymin = lower_ci, ymax = upper_ci, fill = high_low_learning), alpha = 0.2, colour = NA) +
   facet_grid(. ~ group, labeller = labeller(group = group_labels)) +
   labs(x = "Blokkok", y = "Reakcióidő (ms)", colour = "Triplett", fill = "Triplett") +
-  scale_color_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony")) +
+  scale_color_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony", "random")) +
   scale_x_continuous(labels = c("1" = "1-5", "2" = "6-10", "3" = "11-15", "4" = "16-20")) +
-  scale_fill_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony")) +
+  scale_fill_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony", "random")) +
+  scale_y_continuous(limits = c(400, 480), breaks = seq(400, 480, by = 20)) +
   theme_classic()
 
 
-ggsave("plot/RT_epoch_s1.png", width = 25, height = 9, units = "cm", dpi = 300)
+ggsave("plot/RT_epoch_s1.png", width = 24, height = 6, units = "cm", dpi = 300)
 ```
 
 ## RT for session 2
@@ -390,10 +391,11 @@ ggplot(data_trial_plot, aes(x = as.numeric(epoch), y = rt, colour = high_low_lea
   geom_ribbon(aes(ymin = lower_ci, ymax = upper_ci, fill = high_low_learning), alpha = 0.2, colour = NA) +
   facet_grid(. ~ group, labeller = labeller(group = group_labels)) +
   labs(x = "Blokkok", y = "Reakcióidő (ms)", colour = "Triplett", fill = "Triplett") +
-  scale_color_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony")) +
+  scale_color_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony", "random")) +
   scale_x_continuous(labels = c("1" = "1-5", "2" = "6-10", "3" = "11-15", "4" = "16-20", "5" = "21-25", "6" = "26-30", "7" = "31-35", "8" = "36-40"), breaks = c(1, 2, 3, 4, 5, 6, 7, 8)) +
-  scale_fill_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony")) +
+  scale_fill_manual(values = c("#79A088", "#FADD9C"), labels = c("magas", "alacsony", "random")) +
+  scale_y_continuous(limits = c(400, 480), breaks = seq(400, 480, by = 20)) +
   theme_classic()
 
-ggsave("plot/RT_epoch.png", width = 25, height = 9, units = "cm", dpi = 300)
+ggsave("plot/RT_epoch.png", width = 24, height = 6, units = "cm", dpi = 300)
 ```
